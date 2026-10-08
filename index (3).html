@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مركز زيان للتبريد | Markaz Zyan Cooling</title>
+<style>
+  :root { --brand:#0b6fa4; --brand-dark:#085780; --bg:#f3f7fa; --bot:#ffffff; --user:#0b6fa4; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI",Tahoma,Arial,sans-serif; background:var(--bg); color:#1d2b36; }
+  .demo { padding:40px 20px; text-align:center; }
+
+  /* Floating chat button */
+  #chat-toggle { position:fixed; bottom:20px; inset-inline-end:20px; width:60px; height:60px; border-radius:50%;
+    border:0; background:var(--brand); color:#fff; font-size:28px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  #chat-toggle:hover { background:var(--brand-dark); }
+
+  /* Chat window */
+  #chat { position:fixed; bottom:90px; inset-inline-end:20px; width:360px; max-width:calc(100vw - 24px);
+    height:520px; max-height:calc(100vh - 110px); background:#fff; border-radius:16px; display:none;
+    flex-direction:column; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.25); }
+  #chat.open { display:flex; }
+  .head { background:var(--brand); color:#fff; padding:14px 16px; }
+  .head strong { display:block; font-size:16px; }
+  .head small { opacity:.9; }
+  #log { flex:1; overflow-y:auto; padding:14px; background:var(--bg); display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:85%; padding:10px 13px; border-radius:14px; line-height:1.6; font-size:14.5px;
+    white-space:pre-wrap; word-wrap:break-word; unicode-bidi:plaintext; }
+  .msg.bot { background:var(--bot); align-self:flex-start; border:1px solid #e1e8ee; }
+  .msg.user { background:var(--user); color:#fff; align-self:flex-end; }
+  .typing { opacity:.6; font-style:italic; }
+  form { display:flex; gap:8px; padding:10px; border-top:1px solid #e1e8ee; background:#fff; }
+  input { flex:1; padding:11px 12px; border:1px solid #cfd9e0; border-radius:22px; font-size:14.5px; outline:none; unicode-bidi:plaintext; }
+  input:focus { border-color:var(--brand); }
+  button.send { background:var(--brand); color:#fff; border:0; border-radius:22px; padding:0 16px; cursor:pointer; font-size:14px; }
+  button.send:disabled { opacity:.5; cursor:default; }
+  .call { text-align:center; font-size:12px; padding:6px; background:#fff; color:#556; border-top:1px solid #eef2f5; }
+  .call a { color:var(--brand); text-decoration:none; font-weight:600; direction:ltr; unicode-bidi:embed; }
+</style>
+</head>
+<body>
+
+<div class="demo">
+  <h1>مركز زيان للتبريد – جدة</h1>
+  <p>صيانة المكيفات والثلاجات والغسالات</p>
+</div>
+
+<button id="chat-toggle" aria-label="Open chat">💬</button>
+
+<div id="chat" role="dialog" aria-label="Customer support chat">
+  <div class="head">
+    <strong>مركز زيان للتبريد | Markaz Zyan Cooling</strong>
+    <small>خدمة العملاء – جدة · Customer Support</small>
+  </div>
+  <div id="log" aria-live="polite"></div>
+  <div class="call">📞 <a href="tel:+966572234307">+966-57-22-34307</a></div>
+  <form id="form" autocomplete="off">
+    <input id="input" type="text" placeholder="اكتب رسالتك… / Type your message…" maxlength="1500" required>
+    <button class="send" id="send" type="submit">إرسال</button>
+  </form>
+</div>
+
+<script>
+  // If the widget is embedded on another domain, set this to your server URL, e.g. "https://chat.yoursite.com"
+  const API_BASE = "";
+
+  const chat = document.getElementById("chat");
+  const log = document.getElementById("log");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("send");
+  const history = []; // {role, content}
+
+  const GREETING = "أهلاً وسهلاً بك في مركز زيان للتبريد في جدة 👋\nكيف أقدر أساعدك؟ هل المشكلة في المكيف، الثلاجة، أو الغسالة؟\n\nWelcome! You can also write to me in English.";
+
+  function addMsg(text, who, extraClass = "") {
+    const el = document.createElement("div");
+    el.className = `msg ${who} ${extraClass}`.trim();
+    el.textContent = text;  // textContent prevents HTML injection
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+    return el;
+  }
+
+  document.getElementById("chat-toggle").addEventListener("click", () => {
+    chat.classList.toggle("open");
+    if (chat.classList.contains("open")) {
+      if (!log.children.length) addMsg(GREETING, "bot");
+      input.focus();
+    }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    addMsg(text, "user");
+    history.push({ role: "user", content: text });
+    sendBtn.disabled = true;
+    const typing = addMsg("…", "bot", "typing");
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history }),
+      });
+      const data = await res.json();
+      typing.remove();
+      const reply = data.reply || data.error || "حدث خطأ. يرجى الاتصال على +966-57-22-34307";
+      addMsg(reply, "bot");
+      if (data.reply) history.push({ role: "assistant", content: data.reply });
+    } catch {
+      typing.remove();
+      addMsg("تعذر الاتصال. يرجى المحاولة لاحقاً أو الاتصال على +966-57-22-34307\nConnection failed. Please try again or call +966-57-22-34307.", "bot");
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  });
+</script>
+</body>
+</html>
